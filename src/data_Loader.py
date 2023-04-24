@@ -153,13 +153,10 @@ class dataLoader(object):
                                      r_center_x-self.half_range-self.psz:r_center_x+self.half_range+self.psz+1]
 
                 # Append to generated batch
-                l_patch = l_patch.unsqueeze(0)
-                r_patch = r_patch.unsqueeze(0)
-
                 image_l_batch.append(l_patch)
                 image_r_batch.append(r_patch)
 
-            image_l_batch = torch.FloatTensor(image_l_batch)
-            image_r_batch = torch.FloatTensor(image_r_batch)
+            image_l_batch = torch.stack(image_l_batch)
+            image_r_batch = torch.stack(image_r_batch)
 
             yield image_l_batch, image_r_batch
