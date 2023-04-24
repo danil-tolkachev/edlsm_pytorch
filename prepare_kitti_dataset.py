@@ -1,11 +1,9 @@
 from __future__ import print_function
 import os
 import cv2
-import png
 import random
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_dir",  type=str, default='./data_scene_flow/training', help="where the dataset is stored")
@@ -46,9 +44,7 @@ def find_sum(mat, val_to_ignore=-1):
     return total_values
 
 def read_img(image_path, image_height, image_width):
-    reader = png.Reader(image_path)
-    pngdata = reader.read()
-    I_image = np.array(map(np.uint16, pngdata[2]))
+    I_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
     H, W = I_image.shape
     if H != image_height and W != image_width:
