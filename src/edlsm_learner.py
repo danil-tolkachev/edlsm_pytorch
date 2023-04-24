@@ -6,8 +6,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-from nets import *
-from data_Loader import *
+from .nets import *
+from .data_Loader import *
 
 class edlsmLearner(object):
     def __init__(self):
