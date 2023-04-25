@@ -114,6 +114,16 @@ class dataLoader(object):
             random.shuffle(indices)
             for i in indices:
                 tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
+                if (l_center_y - self.psz < 0
+                        or l_center_y + self.psz >= self.image_height
+                        or l_center_x - self.psz < 0
+                        or l_center_x + self.psz >= self.image_width
+                        or r_center_y - self.psz < 0
+                        or r_center_y + self.psz >= self.image_height
+                        or r_center_x - self.half_range - self.psz < 0
+                        or r_center_x + self.half_range + self.psz >=
+                        self.image_width):
+                    continue
 
                 yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
 
@@ -122,6 +132,16 @@ class dataLoader(object):
             indices = range(len(self.points))
             for i in indices:
                 tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
+                if (l_center_y - self.psz < 0
+                        or l_center_y + self.psz >= self.image_height
+                        or l_center_x - self.psz < 0
+                        or l_center_x + self.psz >= self.image_width
+                        or r_center_y - self.psz < 0
+                        or r_center_y + self.psz >= self.image_height
+                        or r_center_x - self.half_range - self.psz < 0
+                        or r_center_x + self.half_range + self.psz >=
+                        self.image_width):
+                    continue
 
                 yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
 
