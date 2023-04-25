@@ -98,7 +98,7 @@ class edlsmLearner(object):
                 print('Step Loss: ', loss.data.cpu().numpy()/opt.batch_size, ' at iteration: ', step)
 
         # Save the latest
-        model_name = 'edlsm_latest' + str(i) + '.ckpt'
+        model_name = 'edlsm_latest' + str(step) + '.ckpt'
         checkpoint_path = os.path.join(opt.checkpoint_dir, model_name)
         torch.save(model.state_dict(), checkpoint_path)
         print("Training Complete and latest checkpoint saved!")
