@@ -48,15 +48,15 @@ parser.add_argument("--half_range",
                     help="Right patch half range")
 parser.add_argument("--image_width",
                     type=int,
-                    default=1238,
+                    default=1224,
                     help="Image width, must same as prepare_dataset")
 parser.add_argument("--image_height",
                     type=int,
-                    default=375,
+                    default=370,
                     help="Image height, must same as prepare_dataset")
 parser.add_argument("--start_step",
                     type=int,
-                    default=24000,
+                    default=0,
                     help="Starting training step")
 parser.add_argument("--max_steps",
                     type=int,
@@ -83,7 +83,7 @@ parser.add_argument("--valid_freq",
 parser.add_argument(
     "--save_latest_freq",
     type=int,
-    default=2000,
+    default=200,
     help="Save the latest model every save_latest_freq iterations")
 args = parser.parse_args()
 
