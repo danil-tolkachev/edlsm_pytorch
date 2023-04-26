@@ -6,8 +6,15 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-from .nets import *
-from .data_Loader import *
+from tqdm import tqdm
+import cv2 as cv
+from pprint import pprint
+
+from .nets import Net
+from .data_Loader import dataLoader
+from .nets_test import Inference
+from .stereo_metrics import StereoMetrics
+
 
 class edlsmLearner(object):
     def __init__(self):
@@ -28,14 +35,15 @@ class edlsmLearner(object):
         # Load Flags
         self.opt = opt
 
-        # Type
-        dtype = torch.FloatTensor
-
         # Data Loader
-        train_loader = dataLoader(opt.directory, opt.train_val_split_dir,\
-                                  opt.train_dataset_name, opt.psz,opt.half_range,\
+        train_loader = dataLoader(opt.directory, opt.train_val_split_dir,
+                                  opt.train_dataset_name, opt.psz,opt.half_range,
                                   opt.image_height, opt.image_width, mode='Train')
         train_gen = train_loader.gen_data_batch(batch_size=opt.batch_size)
+
+        val_loader = dataLoader(opt.directory, opt.train_val_split_dir,
+                                  opt.val_dataset_name, opt.psz,opt.half_range,
+                                  opt.image_height, opt.image_width, mode='Test')
 
         # Target labels
         target  = opt.half_range # + 1
@@ -94,8 +102,28 @@ class edlsmLearner(object):
                 checkpoint_path = os.path.join(opt.checkpoint_dir, model_name)
                 torch.save(model.state_dict(), checkpoint_path)
 
-            if step%opt.summary_freq == 0:
-                print('Step Loss: ', loss.data.cpu().numpy()/opt.batch_size, ' at iteration: ', step)
+                print('\nStep Loss: ', loss.data.cpu().numpy()/opt.batch_size, ' at iteration: ', step)
+
+                net = Inference(3, checkpoint_path, 128, True)
+                avg = StereoMetrics()
+                avg.frame = 'Average'
+
+                print('Validation:')
+                for n in tqdm(val_loader.img_set):
+                    l_image_path = os.path.join(opt.directory, 'image_2/%06d_10.png' % n)
+                    r_image_path = os.path.join(opt.directory, 'image_3/%06d_10.png' % n)
+                    disp_gt_path = os.path.join(opt.directory, 'disp_noc_0/%06d_10.png' % n)
+
+                    limg = cv.imread(l_image_path)
+                    rimg = cv.imread(r_image_path)
+                    disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
+
+                    ldisp, _ = net.process(limg, rimg)
+
+                    m = StereoMetrics(disp_gt, ldisp, str(n))
+                    avg += m
+                pprint(avg.metrics())
+
 
         # Save the latest
         model_name = 'edlsm_latest' + str(step) + '.ckpt'

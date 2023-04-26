@@ -23,8 +23,8 @@ class dataLoader(object):
 
     def get_data(self):
         points       = []
-        rgb_images_l = []
-        rgb_images_r = []
+        all_rgb_images_l = {}
+        all_rgb_images_r = {}
 
         # Full images file path
         file_path = os.path.join(self.train_val_split_dir, self.dataset_name)
@@ -32,6 +32,7 @@ class dataLoader(object):
         with open(file_path, 'r') as f:
             points_all = f.readlines()
 
+        self.img_set = set()
         for point in points_all:
             if point == '\n':
                 continue
@@ -47,6 +48,7 @@ class dataLoader(object):
             r_center_y = int(l_center_y)
 
             points.append((tr_num, l_center_x, l_center_y, r_center_x, r_center_y))
+            self.img_set.add(tr_num)
 
         l_images_all = glob.glob(os.path.join(self.data_directory, 'image_2/*_10.png'))
         r_images_all = glob.glob(os.path.join(self.data_directory, 'image_3/*_10.png'))
@@ -57,7 +59,8 @@ class dataLoader(object):
             print('Un-equal left and right stereo image pairs!')
             raise
 
-        for img in range(len(l_images_all)):
+        print('Preprocessing...')
+        for img in tqdm(self.img_set):
             images_l_path = os.path.join(self.data_directory,\
                                           'image_2/%06d_10.png' % (img))
             images_r_path = os.path.join(self.data_directory,\
@@ -69,44 +72,20 @@ class dataLoader(object):
             image_r = Image.open(images_r_path)
             image_r = 255*transforms.ToTensor()(image_r)
 
-            rgb_images_l.append(image_l)
-            rgb_images_r.append(image_r)
+            image_l = (image_l - image_l.mean()) / image_l.std()
+            image_r = (image_r - image_r.mean()) / image_r.std()
+
+            all_rgb_images_l[img] =  image_l
+            all_rgb_images_r[img] =  image_r
 
         self.points = points
 
         if self.mode == 'Test':
             self.max_steps = len(points)
 
-        # Preprocess Image
-        all_rgb_images_l, all_rgb_images_r = self.preprocess_image(rgb_images_l, rgb_images_r)
-
         # Set to std deviation of 1
         self.all_rgb_images_l = all_rgb_images_l
         self.all_rgb_images_r = all_rgb_images_r
-
-        # Free up memory
-        del rgb_images_l
-        del rgb_images_r
-
-    def preprocess_image(self, rgb_images_l, rgb_images_r):
-        all_rgb_images_l = []
-        all_rgb_images_r = []
-
-        print('Preprocessing......')
-        for i in tqdm(range(len(rgb_images_l))):
-            image_l = rgb_images_l[i]
-            image_r = rgb_images_r[i]
-
-            # Reduce mean and std
-            image_l = (image_l - image_l.mean()) / image_l.std()
-            image_r = (image_r - image_r.mean()) / image_r.std()
-
-            all_rgb_images_r.append(image_r)
-            all_rgb_images_l.append(image_l)
-
-        print('Preprocess Complete!')
-
-        return all_rgb_images_l, all_rgb_images_r
 
     def gen_random_data(self):
         while True:
@@ -128,22 +107,21 @@ class dataLoader(object):
                 yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
 
     def gen_val_data(self):
-        while True:
-            indices = range(len(self.points))
-            for i in indices:
-                tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
-                if (l_center_y - self.psz < 0
-                        or l_center_y + self.psz >= self.image_height
-                        or l_center_x - self.psz < 0
-                        or l_center_x + self.psz >= self.image_width
-                        or r_center_y - self.psz < 0
-                        or r_center_y + self.psz >= self.image_height
-                        or r_center_x - self.half_range - self.psz < 0
-                        or r_center_x + self.half_range + self.psz >=
-                        self.image_width):
-                    continue
+        indices = range(len(self.points))
+        for i in indices:
+            tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
+            if (l_center_y - self.psz < 0
+                    or l_center_y + self.psz >= self.image_height
+                    or l_center_x - self.psz < 0
+                    or l_center_x + self.psz >= self.image_width
+                    or r_center_y - self.psz < 0
+                    or r_center_y + self.psz >= self.image_height
+                    or r_center_x - self.half_range - self.psz < 0
+                    or r_center_x + self.half_range + self.psz >=
+                    self.image_width):
+                continue
 
-                yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
+            yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
 
 
     def gen_data_batch(self, batch_size):
