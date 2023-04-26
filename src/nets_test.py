@@ -101,8 +101,10 @@ class Inference:
             self.net = self.net.cuda()
 
     def preprocess(self, ll_image, rr_image):
-        ll_image = torch.from_numpy(ll_image.astype(np.float32)).permute(2, 0, 1)
-        rr_image = torch.from_numpy(rr_image.astype(np.float32)).permute(2, 0, 1)
+        ll_image = torch.from_numpy(ll_image.astype(np.float32)).permute(
+            2, 0, 1)
+        rr_image = torch.from_numpy(rr_image.astype(np.float32)).permute(
+            2, 0, 1)
 
         # Normalize images. All the patches used for training were normalized.
         l_img = (ll_image - ll_image.mean()) / (ll_image.std())
@@ -126,49 +128,39 @@ class Inference:
 
         return left_feat, right_feat
 
-    def calc_disparity(self, left_feat, right_feat):
+    def calc_disparity(self, left_feat, right_feat, right=True):
+        # feature shape: 1 64 img_h img_w
         _, _, img_h, img_w = left_feat.size()
-        start_id = 0
-        end_id = img_w - 1
-        total_loc = self.disp_range
 
         # Output tensor
-        unary_vol = torch.Tensor(img_h, img_w, total_loc).zero_()
-        right_unary_vol = torch.Tensor(img_h, img_w, total_loc).zero_()
+        unary_vol = torch.Tensor(img_h, img_w, self.disp_range).zero_()
+        if right:
+            right_unary_vol = torch.Tensor(img_h, img_w,
+                                           self.disp_range).zero_()
 
-        while start_id <= end_id:
-            for loc_idx in range(0, total_loc):
-                x_off = -loc_idx + 1  # always <= 0
-                if end_id + x_off >= 1 and img_w >= start_id + x_off:
-                    l = left_feat[:, :, :,
-                                  np.max([start_id, -x_off +
-                                          1]):np.min([end_id, img_w - x_off])]
-                    r = right_feat[:, :, :,
-                                   np.max([1, x_off + start_id]):np.
-                                   min([img_w, end_id + x_off])]
+        for d in range(0, self.disp_range):
+            # shape: 1 64 img_h img_w-d
+            l = left_feat[..., d:img_w]
+            r = right_feat[..., 0:img_w - d]
 
-                    p = torch.mul(l, r)
-                    q = torch.sum(p, 1)
+            p = torch.mul(l, r) # shape: 1 64 img_h img_w-d
+            q = torch.sum(p, 1) # shape: 1 img_h img_w-d
 
-                    unary_vol[:,
-                              np.max([start_id, -x_off +
-                                      1]):np.min([end_id, img_w - x_off]),
-                              loc_idx] = q.data.view(q.data.size(1),
-                                                     q.data.size(2))
-                    right_unary_vol[:,
-                                    np.max([1, x_off + start_id]
-                                           ):np.min([img_w, end_id + x_off]),
-                                    loc_idx] = q.data.view(
-                                        q.data.size(1), q.data.size(2))
-
-            start_id = end_id + 1
+            unary_vol[:, d:img_w, d] = q.data.view(q.data.size(1),
+                                                   q.data.size(2))
+            if right:
+                right_unary_vol[:, 0:img_w - d,
+                                d] = q.data.view(q.data.size(1),
+                                                 q.data.size(2))
 
         max_disp1, pred_1 = torch.max(unary_vol, 2)
-        max_disp2, pred_2 = torch.max(right_unary_vol, 2)
+        pred_disp1 = pred_1.view(img_h, img_w)
 
-        # disparity map (height x width)
-        pred_disp1 = pred_1.view(unary_vol.size(0), unary_vol.size(1))
-        pred_disp2 = pred_2.view(unary_vol.size(0), unary_vol.size(1))
+        if right:
+            max_disp2, pred_2 = torch.max(right_unary_vol, 2)
+            pred_disp2 = pred_2.view(img_h, img_w)
+        else:
+            pred_disp2 = pred_disp1
 
         return pred_disp1, pred_disp2
 
