@@ -1,15 +1,20 @@
 from __future__ import print_function
-import os
-import numpy as np
+
 import argparse
+import os
+
+import cv2 as cv
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
+from PIL import Image
 from torch.autograd import Variable
 from torchvision import datasets, transforms
-from PIL import Image
-import matplotlib.pyplot as plt
+
 from src.nets_test import Inference
-import cv2 as cv
+from src.stereo_metrics import StereoMetrics
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_dir",
@@ -34,7 +39,7 @@ parser.add_argument("--resize_image",
                     help="Resize image")
 parser.add_argument("--test_num",
                     type=int,
-                    default=[80],
+                    default=[146, 11, 74, 80, 17, 85, 143, 97, 104],
                     nargs='+',
                     help="Image number to do inference")
 parser.add_argument("--disp_range",
@@ -42,6 +47,7 @@ parser.add_argument("--disp_range",
                     default=128,
                     help="Search range for disparity")
 parser.add_argument("--use_gpu", type=int, default=1, help="Check to use GPU")
+parser.add_argument("--out", type=str, default='', help="path store csv")
 
 args = parser.parse_args()
 print('----------------------------------------')
@@ -50,19 +56,6 @@ for arg in vars(args):
     print("'", arg, "'", ": ", getattr(args, arg))
 print('----------------------------------------')
 print('Inference....')
-
-
-def load_disp_img(test_num):
-    image_path = '%s/disp_%s_0/%06d_10.png' % ('./data_scene_flow/training',
-                                               'noc', test_num)
-    reader = png.Reader(image_path)
-    pngdata = reader.read()
-    I_image = np.array(map(np.uint16, pngdata[2]))
-
-    D_image = I_image / 256.0
-
-    return D_image
-
 
 #################################### Main #####################################
 # Trained model file
@@ -73,23 +66,40 @@ net = Inference(3, model_fn, args.disp_range, args.use_gpu)
 print(net.net)
 print('Model Loaded')
 
+avg = StereoMetrics()
+avg.frame = 'Average'
+table = []
+
 for n in args.test_num:
     # Load the images
     l_image_path = os.path.join(args.dataset_dir, 'image_2/%06d_10.png' % n)
     r_image_path = os.path.join(args.dataset_dir, 'image_3/%06d_10.png' % n)
+    disp_gt_path = os.path.join(args.dataset_dir, 'disp_noc_0/%06d_10.png' % n)
 
     limg = cv.imread(l_image_path)
     rimg = cv.imread(r_image_path)
+    disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
 
     ldisp, rdisp = net.process(limg, rimg)
-    print(ldisp.shape, ldisp.dtype)
+
+    m = StereoMetrics(disp_gt, ldisp, str(n))
+    table.append(m.metrics())
+    avg += m
 
     cv.imshow('limg', limg)
     cv.imshow('rimg', rimg)
     cv.imshow('ldisp', ldisp / args.disp_range)
     cv.imshow('rdisp', rdisp / args.disp_range)
-    k = cv.waitKey(0)
+    cv.imshow('disp_gt', disp_gt / args.disp_range)
+
+    k = cv.waitKey(1)
     if k in [27, ord('q')]:
         break
 
-print('Complete!')
+table.append(avg.metrics())
+table = pd.DataFrame(table)
+pd.set_option('display.max_columns', 20)
+print(table)
+
+if args.out:
+    table.to_csv(args.out, index=False)
