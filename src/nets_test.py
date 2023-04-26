@@ -101,6 +101,9 @@ class Inference:
             self.net = self.net.cuda()
 
     def preprocess(self, ll_image, rr_image):
+        ll_image = torch.from_numpy(ll_image.astype(np.float32)).permute(2, 0, 1)
+        rr_image = torch.from_numpy(rr_image.astype(np.float32)).permute(2, 0, 1)
+
         # Normalize images. All the patches used for training were normalized.
         l_img = (ll_image - ll_image.mean()) / (ll_image.std())
         r_img = (rr_image - rr_image.mean()) / (rr_image.std())
@@ -173,4 +176,5 @@ class Inference:
         l_img, r_img = self.preprocess(ll_image, rr_image)
         left_feat, right_feat = self.calc_features(l_img, r_img)
         pred_disp1, pred_disp2 = self.calc_disparity(left_feat, right_feat)
-        return pred_disp1, pred_disp2
+        return (pred_disp1.numpy().astype(np.float32),
+                pred_disp2.numpy().astype(np.float32))

@@ -2,7 +2,6 @@ from __future__ import print_function
 import os
 import numpy as np
 import argparse
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -10,6 +9,7 @@ from torchvision import datasets, transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 from src.nets_test import Inference
+import cv2 as cv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_dir",
@@ -34,7 +34,8 @@ parser.add_argument("--resize_image",
                     help="Resize image")
 parser.add_argument("--test_num",
                     type=int,
-                    default=80,
+                    default=[80],
+                    nargs='+',
                     help="Image number to do inference")
 parser.add_argument("--disp_range",
                     type=int,
@@ -49,27 +50,6 @@ for arg in vars(args):
     print("'", arg, "'", ": ", getattr(args, arg))
 print('----------------------------------------')
 print('Inference....')
-
-
-# Useful functions
-def load_and_resize_l_and_r_image(test_num):
-    # Load the image
-    l_image_path = os.path.join(args.dataset_dir,
-                                'image_2/%06d_10.png' % (test_num))
-    r_image_path = os.path.join(args.dataset_dir,
-                                'image_3/%06d_10.png' % (test_num))
-    ll_image1 = Image.open(l_image_path)
-    ll_image1 = ll_image1.convert('RGB')
-    rr_image1 = Image.open(r_image_path)
-    rr_image1 = rr_image1.convert('RGB')
-
-    ll_image1 = np.array(ll_image1)
-    rr_image1 = np.array(rr_image1)
-
-    ll_image = 255 * transforms.ToTensor()(ll_image1)
-    rr_image = 255 * transforms.ToTensor()(rr_image1)
-
-    return ll_image, rr_image, ll_image1, rr_image1
 
 
 def load_disp_img(test_num):
@@ -93,29 +73,23 @@ net = Inference(3, model_fn, args.disp_range, args.use_gpu)
 print(net.net)
 print('Model Loaded')
 
-# Load the images
-ll_image, rr_image, ll_image1, rr_image1 = load_and_resize_l_and_r_image(
-    args.test_num)
+for n in args.test_num:
+    # Load the images
+    l_image_path = os.path.join(args.dataset_dir, 'image_2/%06d_10.png' % n)
+    r_image_path = os.path.join(args.dataset_dir, 'image_3/%06d_10.png' % n)
 
-pred_disp1, pred_disp2 = net.process(ll_image, rr_image)
+    limg = cv.imread(l_image_path)
+    rimg = cv.imread(r_image_path)
 
-# Display the images
-plt.subplot(411)
-plt.imshow(ll_image1)
-plt.title('Left Image')
-plt.axis('off')
-plt.subplot(412)
-plt.imshow(rr_image1)
-plt.title('Right Image')
-plt.axis('off')
-plt.subplot(413)
-plt.imshow(pred_disp1, cmap='gray')
-plt.title('Predicted Disparity')
-plt.axis('off')
-plt.subplot(414)
-plt.imshow(pred_disp2, cmap='gray')
-plt.title('Right Disparity')
-plt.axis('off')
-plt.show()
+    ldisp, rdisp = net.process(limg, rimg)
+    print(ldisp.shape, ldisp.dtype)
+
+    cv.imshow('limg', limg)
+    cv.imshow('rimg', rimg)
+    cv.imshow('ldisp', ldisp / args.disp_range)
+    cv.imshow('rdisp', rdisp / args.disp_range)
+    k = cv.waitKey(0)
+    if k in [27, ord('q')]:
+        break
 
 print('Complete!')
