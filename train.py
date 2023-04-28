@@ -60,7 +60,7 @@ parser.add_argument("--start_step",
                     help="Starting training step")
 parser.add_argument("--max_steps",
                     type=int,
-                    default=100000,
+                    default=200000,
                     help="Maximum number of training iterations")
 parser.add_argument("--l_rate", type=float, default=0.01, help="learning rate")
 parser.add_argument("--l2", type=float, default=0.0005, help="Weight Decay")
