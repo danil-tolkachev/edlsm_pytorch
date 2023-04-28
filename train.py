@@ -25,10 +25,6 @@ parser.add_argument("--checkpoint_dir",
                     type=str,
                     default="./checkpoints",
                     help="Directory name to save the checkpoints")
-parser.add_argument("--logs_path",
-                    type=str,
-                    default="logs",
-                    help="Tensorboard log path")
 parser.add_argument("--continue_train",
                     action='store_true',
                     help="Resume training")

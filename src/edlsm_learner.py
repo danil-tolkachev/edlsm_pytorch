@@ -10,6 +10,7 @@ from tqdm import tqdm
 import cv2 as cv
 from pprint import pprint
 from torch.utils.tensorboard import SummaryWriter
+import shutil
 
 from .nets import Net
 from .data_Loader import dataLoader
@@ -73,6 +74,7 @@ class edlsmLearner(object):
         optimizer = optim.Adam(model.parameters(), lr=opt.l_rate, eps=1e-08, weight_decay=opt.l2)
 
         writer = SummaryWriter()
+        best_err3px = 100
         # Begin Training
         for step in range(opt.start_step, opt.max_steps):
             # Sample batch data
@@ -100,8 +102,8 @@ class edlsmLearner(object):
             optimizer.step()
 
             if step%opt.save_latest_freq == 0:
-                model_name = 'edlsm_' + str(step) + '.ckpt'
-                checkpoint_path = os.path.join(opt.checkpoint_dir, model_name)
+                model_name = 'edlsm_latest.ckpt'
+                checkpoint_path = os.path.join(writer.log_dir, model_name)
                 torch.save(model.state_dict(), checkpoint_path)
 
                 print('\nStep Loss: ', loss.data.cpu().numpy()/opt.batch_size, ' at iteration: ', step)
@@ -130,6 +132,14 @@ class edlsmLearner(object):
                 writer.add_scalar('Validation/Err1px', m['Err1px'], step)
                 writer.add_scalar('Validation/Err2px', m['Err2px'], step)
                 writer.add_scalar('Validation/Err3px', m['Err3px'], step)
+
+                if m['Err3px'] < best_err3px:
+                    best_err3px = m['Err3px']
+                    best_checkpoint_path = os.path.join(
+                        writer.log_dir, 'edlsm_best.ckpt')
+                    shutil.copy(checkpoint_path, best_checkpoint_path)
+                    print('Update', best_checkpoint_path)
+
         writer.close()
 
 
