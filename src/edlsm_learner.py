@@ -71,7 +71,7 @@ class edlsmLearner(object):
             model.load_state_dict(torch.load(load_model))
 
         # Optimizer
-        optimizer = optim.Adam(model.parameters(), lr=opt.l_rate, eps=1e-08, weight_decay=opt.l2)
+        optimizer = optim.SGD(model.parameters(), lr=opt.l_rate, weight_decay=opt.l2)
 
         writer = SummaryWriter()
         best_err3px = 100
