@@ -6,77 +6,82 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 import torch
-from torchvision import datasets, transforms
+from torchvision import transforms
+import cv2 as cv
+
 
 class dataLoader(object):
-    def __init__(self, data_directory, train_val_split_dir, dataset_name, psz,
-                 half_range, image_height, image_width, mode='Train'):
+    def __init__(self,
+                 data_directory,
+                 psz,
+                 half_range,
+                 nchannels=3,
+                 mode='Train',
+                 train_split_size=160):
         self.psz  = psz
         self.mode = mode
         self.half_range    = half_range
-        self.image_height  = image_height
-        self.image_width   = image_width
-        self.dataset_name  = dataset_name
         self.data_directory = data_directory
-        self.train_val_split_dir = train_val_split_dir
+        self.nchannels = nchannels
+        self.train_split_size = train_split_size
         self.get_data()
 
     def get_data(self):
-        points       = []
+        total_data = os.listdir(self.data_directory + '/disp_noc_0')
+        indices = list(range(len(total_data)))
+        random.seed(a=123)
+        random.shuffle(indices)
+        if self.mode == 'Train':
+            self.img_set = indices[:self.train_split_size]
+        else:
+            self.img_set = indices[self.train_split_size:]
+
+        points = []
         all_rgb_images_l = {}
         all_rgb_images_r = {}
 
-        # Full images file path
-        file_path = os.path.join(self.train_val_split_dir, self.dataset_name)
-
-        with open(file_path, 'r') as f:
-            points_all = f.readlines()
-
-        self.img_set = set()
-        for point in points_all:
-            if point == '\n':
-                continue
-
-            tr_num, _, l_center_x, l_center_y, r_center_x = point.split(',')
-            # Removes '\n' at the begining
-            r_center_x = r_center_x[:-1]
-
-            tr_num     = int(tr_num)
-            l_center_x = int(l_center_x)
-            l_center_y = int(l_center_y)
-            r_center_x = int(r_center_x)
-            r_center_y = int(l_center_y)
-
-            points.append((tr_num, l_center_x, l_center_y, r_center_x, r_center_y))
-            self.img_set.add(tr_num)
-
-        l_images_all = glob.glob(os.path.join(self.data_directory, 'image_2/*_10.png'))
-        r_images_all = glob.glob(os.path.join(self.data_directory, 'image_3/*_10.png'))
-
-        try:
-            assert len(l_images_all) == len(r_images_all)
-        except AssertionError:
-            print('Un-equal left and right stereo image pairs!')
-            raise
-
         print('Preprocessing...')
         for img in tqdm(self.img_set):
-            images_l_path = os.path.join(self.data_directory,\
-                                          'image_2/%06d_10.png' % (img))
-            images_r_path = os.path.join(self.data_directory,\
-                                          'image_3/%06d_10.png' % (img))
+            images_l_path = os.path.join(self.data_directory,
+                                         'image_2/%06d_10.png' % img)
+            images_r_path = os.path.join(self.data_directory,
+                                         'image_3/%06d_10.png' % img)
 
             # read images into tensor
             image_l = Image.open(images_l_path)
-            image_l = 255*transforms.ToTensor()(image_l)
+            image_l = 255 * transforms.ToTensor()(image_l)
             image_r = Image.open(images_r_path)
-            image_r = 255*transforms.ToTensor()(image_r)
+            image_r = 255 * transforms.ToTensor()(image_r)
 
             image_l = (image_l - image_l.mean()) / image_l.std()
             image_r = (image_r - image_r.mean()) / image_r.std()
 
-            all_rgb_images_l[img] =  image_l
-            all_rgb_images_r[img] =  image_r
+            all_rgb_images_l[img] = image_l
+            all_rgb_images_r[img] = image_r
+            if self.mode != 'Train':
+                continue
+
+            disp_path = os.path.join(self.data_directory,
+                                     'disp_noc_0/%06d_10.png' % img)
+            disp = cv.imread(disp_path, cv.IMREAD_UNCHANGED) / 256.0
+            height, width = disp.shape
+            for v, u in zip(*np.where(disp > 0)):
+                d = disp[v, u]
+                l_center_x = u
+                l_center_y = v
+                r_center_x = round(l_center_x - d)
+                r_center_y = l_center_y
+                if (l_center_y - self.psz < 0
+                        or l_center_y + self.psz >= height
+                        or l_center_x - self.psz < 0
+                        or l_center_x + self.psz >= width
+                        or r_center_y - self.psz < 0
+                        or r_center_y + self.psz >= height
+                        or r_center_x - self.half_range - self.psz < 0
+                        or r_center_x + self.half_range + self.psz >= width):
+                    continue
+                points.append(
+                    (img, l_center_x, l_center_y, r_center_x, r_center_y))
 
         self.points = points
 
@@ -93,68 +98,43 @@ class dataLoader(object):
             random.shuffle(indices)
             for i in indices:
                 tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
-                if (l_center_y - self.psz < 0
-                        or l_center_y + self.psz >= self.image_height
-                        or l_center_x - self.psz < 0
-                        or l_center_x + self.psz >= self.image_width
-                        or r_center_y - self.psz < 0
-                        or r_center_y + self.psz >= self.image_height
-                        or r_center_x - self.half_range - self.psz < 0
-                        or r_center_x + self.half_range + self.psz >=
-                        self.image_width):
-                    continue
-
                 yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
-
-    def gen_val_data(self):
-        indices = range(len(self.points))
-        for i in indices:
-            tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
-            if (l_center_y - self.psz < 0
-                    or l_center_y + self.psz >= self.image_height
-                    or l_center_x - self.psz < 0
-                    or l_center_x + self.psz >= self.image_width
-                    or r_center_y - self.psz < 0
-                    or r_center_y + self.psz >= self.image_height
-                    or r_center_x - self.half_range - self.psz < 0
-                    or r_center_x + self.half_range + self.psz >=
-                    self.image_width):
-                continue
-
-            yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
 
 
     def gen_data_batch(self, batch_size):
-        # Generate data based on training/validation
-        if self.mode == 'Train':
-            # Randomize data
-            data_gen = self.gen_random_data()
-        else:
-            data_gen = self.gen_val_data()
+        data_gen = self.gen_random_data()
 
         while True:
-            image_l_batch  = []
-            image_r_batch = []
+            psz2 = 2 * self.psz + 1
+            half2 = 2 * self.half_range
+            image_l_batch = torch.zeros((batch_size, self.nchannels, psz2, psz2),
+                                        dtype=torch.float)
+            image_r_batch = torch.zeros(
+                (batch_size, self.nchannels, psz2, psz2 + half2),
+                dtype=torch.float)
+            t_batch = torch.zeros((batch_size, 1), dtype=torch.int32)
 
             # Generate training batch
-            for _ in range(batch_size):
+            for batch in range(batch_size):
                 tr_num, l_center_x, l_center_y, r_center_x, r_center_y = next(data_gen)
 
                 l_image = self.all_rgb_images_l[tr_num]
                 r_image = self.all_rgb_images_r[tr_num]
 
-                # Get patches
-                l_patch = l_image[:, l_center_y-self.psz:l_center_y+self.psz+1,\
-                                     l_center_x-self.psz:l_center_x+self.psz+1]
+                t_batch[batch, 0] = self.half_range
 
-                r_patch = r_image[:, r_center_y-self.psz:r_center_y+self.psz+1,\
-                                     r_center_x-self.half_range-self.psz:r_center_x+self.half_range+self.psz+1]
+                image_l_batch[batch,
+                              ...] = l_image[:,
+                                             l_center_y - self.psz:l_center_y +
+                                             self.psz + 1,
+                                             l_center_x - self.psz:l_center_x +
+                                             self.psz + 1]
+                image_r_batch[batch,
+                              ...] = r_image[:,
+                                             r_center_y - self.psz:r_center_y +
+                                             self.psz + 1,
+                                             r_center_x - self.half_range -
+                                             self.psz:r_center_x +
+                                             self.half_range + self.psz + 1]
 
-                # Append to generated batch
-                image_l_batch.append(l_patch)
-                image_r_batch.append(r_patch)
-
-            image_l_batch = torch.stack(image_l_batch)
-            image_r_batch = torch.stack(image_r_batch)
-
-            yield image_l_batch, image_r_batch
+            yield image_l_batch, image_r_batch, t_batch

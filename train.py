@@ -9,18 +9,10 @@ parser.add_argument("--directory",
                     type=str,
                     default="./data_scene_flow/training",
                     help="Directory to the dataset")
-parser.add_argument("--train_val_split_dir",
-                    type=str,
-                    default="./dataset",
-                    help="Directory to the dataset")
-parser.add_argument("--train_dataset_name",
-                    type=str,
-                    default="tr_160_18_100.txt",
-                    help="Training set")
-parser.add_argument("--val_dataset_name",
-                    type=str,
-                    default="val_40_18_100.txt",
-                    help="Validation set")
+parser.add_argument("--train_split_size",
+                    type=int,
+                    default=160,
+                    help="Train split size")
 parser.add_argument("--checkpoint_dir",
                     type=str,
                     default="./checkpoints",
@@ -42,14 +34,6 @@ parser.add_argument("--half_range",
                     type=int,
                     default=100,
                     help="Right patch half range")
-parser.add_argument("--image_width",
-                    type=int,
-                    default=1224,
-                    help="Image width, must same as prepare_dataset")
-parser.add_argument("--image_height",
-                    type=int,
-                    default=370,
-                    help="Image height, must same as prepare_dataset")
 parser.add_argument("--start_step",
                     type=int,
                     default=0,
