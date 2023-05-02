@@ -1,9 +1,6 @@
 from collections import Counter, OrderedDict
 import numpy as np
 
-INVALID_DISP = 0
-
-
 class StereoMetrics:
     def __init__(self, gt=None, disp=None, frame=None):
         self.counter = Counter()
@@ -13,8 +10,8 @@ class StereoMetrics:
             self.update(gt, disp, frame)
 
     def update(self, gt, disp, frame):
-        mask_gt = gt != INVALID_DISP
-        mask_disp = disp != INVALID_DISP
+        mask_gt = gt > 0
+        mask_disp = disp >= 0
         mask_both = mask_gt & mask_disp
 
         self.frame = frame
