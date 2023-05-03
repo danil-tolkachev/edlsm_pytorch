@@ -1,4 +1,4 @@
-from collections import Counter, OrderedDict
+from collections import Counter
 import numpy as np
 
 class StereoMetrics:
@@ -28,7 +28,7 @@ class StereoMetrics:
         return self
 
     def metrics(self):
-        res = OrderedDict()
+        res = {}
         res['Frame'] = self.frame
         res['NGT'] = self.ngt
         res['Density'] = self.nboth / self.ngt

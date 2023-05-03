@@ -164,9 +164,11 @@ class Inference:
 
         return pred_disp1, pred_disp2
 
-    def process(self, ll_image, rr_image):
+    def process(self, ll_image, rr_image, right=True):
         l_img, r_img = self.preprocess(ll_image, rr_image)
         left_feat, right_feat = self.calc_features(l_img, r_img)
-        pred_disp1, pred_disp2 = self.calc_disparity(left_feat, right_feat)
+        pred_disp1, pred_disp2 = self.calc_disparity(left_feat,
+                                                     right_feat,
+                                                     right=right)
         return (pred_disp1.numpy().astype(np.float32),
                 pred_disp2.numpy().astype(np.float32))

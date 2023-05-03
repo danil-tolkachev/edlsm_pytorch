@@ -64,9 +64,6 @@ def main():
     pp = pprint.PrettyPrinter()
     pp.pprint(vars(args))
 
-    if not os.path.exists(args.checkpoint_dir):
-        os.makedirs(args.checkpoint_dir)
-
     edlsm = edlsmLearner()
     edlsm.train(args)
 

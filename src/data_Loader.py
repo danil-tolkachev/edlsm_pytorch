@@ -93,12 +93,14 @@ class dataLoader(object):
         self.all_rgb_images_r = all_rgb_images_r
 
     def gen_random_data(self):
+        self.epoch = 0
         while True:
             indices = list(range(len(self.points)))
             random.shuffle(indices)
             for i in indices:
                 tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
                 yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
+            self.epoch += 1
 
 
     def gen_data_batch(self, batch_size):

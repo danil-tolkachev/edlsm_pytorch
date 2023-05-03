@@ -11,6 +11,7 @@ import cv2 as cv
 from pprint import pprint
 from torch.utils.tensorboard import SummaryWriter
 import shutil
+import json
 
 from .nets import Net
 from .data_Loader import dataLoader
@@ -73,10 +74,11 @@ class edlsmLearner(object):
         optimizer = optim.SGD(model.parameters(), lr=opt.l_rate, weight_decay=opt.l2)
 
         writer = SummaryWriter()
-        best_err3px = 100
+        best_metrics = None
 
         # Begin Training
-        for step in range(opt.start_step, opt.max_steps, opt.save_latest_freq):
+        for step in range(opt.start_step, opt.max_steps + 1,
+                          opt.save_latest_freq):
             print('Train:')
             for _ in tqdm(range(opt.save_latest_freq)):
                 # Sample batch data
@@ -115,7 +117,7 @@ class edlsmLearner(object):
 
             net = Inference(3, checkpoint_path, 128, True)
             avg = StereoMetrics()
-            avg.frame = 'Average'
+            avg.frame = f'Step {step} epoch {train_loader.epoch}'
 
             print('Validation:')
             for n in tqdm(val_loader.img_set):
@@ -127,7 +129,7 @@ class edlsmLearner(object):
                 rimg = cv.imread(r_image_path)
                 disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
 
-                ldisp, _ = net.process(limg, rimg)
+                ldisp, _ = net.process(limg, rimg, right=False)
 
                 m = StereoMetrics(disp_gt, ldisp, str(n))
                 avg += m
@@ -137,19 +139,18 @@ class edlsmLearner(object):
             writer.add_scalar('Validation/Err2px', m['Err2px'], step)
             writer.add_scalar('Validation/Err3px', m['Err3px'], step)
 
-            if m['Err3px'] < best_err3px:
-                best_err3px = m['Err3px']
+            if best_metrics is None or best_metrics['Err3px'] > m['Err3px']:
+                best_metrics = m
                 best_checkpoint_path = os.path.join(
                     writer.log_dir, 'edlsm_best.ckpt')
                 shutil.copy(checkpoint_path, best_checkpoint_path)
                 print('Update', best_checkpoint_path)
+                metrics_path = os.path.join(writer.log_dir, 'best_metrics.json')
+                json.dump(best_metrics, open(metrics_path, 'w'), indent=2)
 
         writer.close()
 
-
-
         # Save the latest
-        model_name = 'edlsm_latest' + str(step) + '.ckpt'
-        checkpoint_path = os.path.join(opt.checkpoint_dir, model_name)
-        torch.save(model.state_dict(), checkpoint_path)
-        print("Training Complete and latest checkpoint saved!")
+        print("Training complete!")
+        print("Best metrics:")
+        pprint(best_metrics)
