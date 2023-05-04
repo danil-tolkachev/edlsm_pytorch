@@ -12,14 +12,15 @@ class StereoMetrics:
     def update(self, gt, disp, frame):
         mask_gt = gt > 0
         mask_disp = disp >= 0
-        mask_both = mask_gt & mask_disp
+        self.mask = mask_gt & mask_disp
 
         self.frame = frame
         self.ngt = np.count_nonzero(mask_gt)
-        self.nboth = np.count_nonzero(mask_both)
+        self.nboth = np.count_nonzero(self.mask)
 
-        err = np.abs(gt[mask_both] - disp[mask_both])
-        self.counter = Counter(err)
+        self.err = np.abs(gt - disp)
+        self.err[~self.mask] = 0
+        self.counter = Counter(self.err[self.mask])
 
     def __iadd__(self, other):
         self.ngt += other.ngt

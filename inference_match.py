@@ -91,8 +91,9 @@ for n in args.test_num:
     cv.imshow('ldisp', ldisp / args.disp_range)
     cv.imshow('rdisp', rdisp / args.disp_range)
     cv.imshow('disp_gt', disp_gt / args.disp_range)
+    cv.imshow('err', m.err / 5)
 
-    k = cv.waitKey(1)
+    k = cv.waitKey(0)
     if k in [27, ord('q')]:
         break
 
