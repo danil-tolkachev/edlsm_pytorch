@@ -77,8 +77,7 @@ class edlsmLearner(object):
         best_metrics = None
 
         # Begin Training
-        for step in range(opt.start_step, opt.max_steps + 1,
-                          opt.save_latest_freq):
+        for step in range(opt.start_step, opt.max_steps, opt.save_latest_freq):
             print('Train:')
             for _ in tqdm(range(opt.save_latest_freq)):
                 # Sample batch data
@@ -109,6 +108,7 @@ class edlsmLearner(object):
             checkpoint_path = os.path.join(writer.log_dir, model_name)
             torch.save(model.state_dict(), checkpoint_path)
 
+            step += opt.save_latest_freq
             print('Step Loss: ',
                   loss.data.cpu().numpy() / opt.batch_size, ' at iteration: ',
                   step)

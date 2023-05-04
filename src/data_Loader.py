@@ -65,23 +65,15 @@ class dataLoader(object):
                                      'disp_noc_0/%06d_10.png' % img)
             disp = cv.imread(disp_path, cv.IMREAD_UNCHANGED) / 256.0
             height, width = disp.shape
+            half = self.half_range
+            psz = self.psz
             for v, u in zip(*np.where(disp > 0)):
                 d = disp[v, u]
-                l_center_x = u
-                l_center_y = v
-                r_center_x = round(l_center_x - d)
-                r_center_y = l_center_y
-                if (l_center_y - self.psz < 0
-                        or l_center_y + self.psz >= height
-                        or l_center_x - self.psz < 0
-                        or l_center_x + self.psz >= width
-                        or r_center_y - self.psz < 0
-                        or r_center_y + self.psz >= height
-                        or r_center_x - self.half_range - self.psz < 0
-                        or r_center_x + self.half_range + self.psz >= width):
-                    continue
-                points.append(
-                    (img, l_center_x, l_center_y, r_center_x, r_center_y))
+                ur = np.round(u - d)
+                if (psz <= u < width - psz
+                        and psz + half <= ur < width - psz - half
+                        and psz <= v < height - psz):
+                    points.append((img, u, v, d))
 
         self.points = points
 
@@ -98,8 +90,8 @@ class dataLoader(object):
             indices = list(range(len(self.points)))
             random.shuffle(indices)
             for i in indices:
-                tr_num, l_center_x, l_center_y, r_center_x, r_center_y = self.points[i]
-                yield tr_num, l_center_x, l_center_y, r_center_x, r_center_y
+                img_num, u, v, d = self.points[i]
+                yield img_num, u, v, d
             self.epoch += 1
 
 
@@ -107,8 +99,11 @@ class dataLoader(object):
         data_gen = self.gen_random_data()
 
         while True:
-            psz2 = 2 * self.psz + 1
-            half2 = 2 * self.half_range
+            psz = self.psz
+            psz2 = 2 * psz + 1
+            half = self.half_range
+            half2 = 2 * half
+
             image_l_batch = torch.zeros((batch_size, self.nchannels, psz2, psz2),
                                         dtype=torch.float)
             image_r_batch = torch.zeros(
@@ -118,25 +113,19 @@ class dataLoader(object):
 
             # Generate training batch
             for batch in range(batch_size):
-                tr_num, l_center_x, l_center_y, r_center_x, r_center_y = next(data_gen)
+                tr_num, u, v, d = next(data_gen)
+
+                v1, v2 = v - psz, v + psz + 1
+                u1, u2 = u - psz, u + psz + 1
+                ur = round(u - d)
+                u1r = ur - half - psz
+                u2r = ur + half + psz + 1
+                t_batch[batch, 0] = half
 
                 l_image = self.all_rgb_images_l[tr_num]
                 r_image = self.all_rgb_images_r[tr_num]
 
-                t_batch[batch, 0] = self.half_range
-
-                image_l_batch[batch,
-                              ...] = l_image[:,
-                                             l_center_y - self.psz:l_center_y +
-                                             self.psz + 1,
-                                             l_center_x - self.psz:l_center_x +
-                                             self.psz + 1]
-                image_r_batch[batch,
-                              ...] = r_image[:,
-                                             r_center_y - self.psz:r_center_y +
-                                             self.psz + 1,
-                                             r_center_x - self.half_range -
-                                             self.psz:r_center_x +
-                                             self.half_range + self.psz + 1]
+                image_l_batch[batch, ...] = l_image[:, v1:v2, u1:u2]
+                image_r_batch[batch, ...] = r_image[:, v1:v2, u1r:u2r]
 
             yield image_l_batch, image_r_batch, t_batch

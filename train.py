@@ -40,7 +40,7 @@ parser.add_argument("--start_step",
                     help="Starting training step")
 parser.add_argument("--max_steps",
                     type=int,
-                    default=200000,
+                    default=400000,
                     help="Maximum number of training iterations")
 parser.add_argument("--l_rate", type=float, default=0.01, help="learning rate")
 parser.add_argument("--l2", type=float, default=0.0005, help="Weight Decay")
@@ -55,7 +55,7 @@ parser.add_argument("--pxl_wghts",
 parser.add_argument(
     "--save_latest_freq",
     type=int,
-    default=500,
+    default=1000,
     help="Save the latest model every save_latest_freq iterations")
 args = parser.parse_args()
 
