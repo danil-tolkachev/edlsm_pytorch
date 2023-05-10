@@ -19,6 +19,15 @@ from .nets_test import Inference
 from .stereo_metrics import StereoMetrics
 
 
+def dict_to_md(d):
+    txt = []
+    txt.append('|Key|Value|')
+    txt.append('|---|---|')
+    for k, v in d.items():
+        txt.append(f'|{k}|{v}|')
+    return '\n'.join(txt)
+
+
 class edlsmLearner(object):
     def __init__(self):
         pass
@@ -75,6 +84,7 @@ class edlsmLearner(object):
 
         writer = SummaryWriter()
         best_metrics = None
+        writer.add_text('Options', dict_to_md(vars(opt)))
 
         # Begin Training
         for step in range(opt.start_step, opt.max_steps, opt.save_latest_freq):
@@ -148,6 +158,7 @@ class edlsmLearner(object):
                 metrics_path = os.path.join(writer.log_dir, 'best_metrics.json')
                 json.dump(best_metrics, open(metrics_path, 'w'), indent=2)
 
+        writer.add_text('Best metrics', dict_to_md(best_metrics))
         writer.close()
 
         # Save the latest
