@@ -28,6 +28,25 @@ def dict_to_md(d):
     return '\n'.join(txt)
 
 
+def calc_metrics(net, loader, directory, frame):
+    avg = StereoMetrics()
+    avg.frame = frame
+
+    for n in tqdm(loader.img_set):
+        l_image_path = os.path.join(directory, 'image_2/%06d_10.png' % n)
+        r_image_path = os.path.join(directory, 'image_3/%06d_10.png' % n)
+        disp_gt_path = os.path.join(directory, 'disp_noc_0/%06d_10.png' % n)
+
+        limg = cv.imread(l_image_path)
+        rimg = cv.imread(r_image_path)
+        disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
+
+        ldisp, _ = net.process(limg, rimg, right=False)
+
+        m = StereoMetrics(disp_gt, ldisp, str(n))
+        avg += m
+    return avg.metrics()
+
 class edlsmLearner(object):
     def __init__(self):
         pass
@@ -126,24 +145,21 @@ class edlsmLearner(object):
                               loss.data.cpu().numpy() / opt.batch_size, step)
 
             net = Inference(3, checkpoint_path, 128, True)
-            avg = StereoMetrics()
-            avg.frame = f'Step {step} epoch {train_loader.epoch}'
 
-            print('Validation:')
-            for n in tqdm(val_loader.img_set):
-                l_image_path = os.path.join(opt.directory, 'image_2/%06d_10.png' % n)
-                r_image_path = os.path.join(opt.directory, 'image_3/%06d_10.png' % n)
-                disp_gt_path = os.path.join(opt.directory, 'disp_noc_0/%06d_10.png' % n)
+            m = calc_metrics(
+                net, train_loader, opt.directory,
+                f'Train metrics at step {step} epoch {train_loader.epoch}')
+            print('Train metrics:')
+            pprint(m)
+            writer.add_scalar('Train/Err1px', m['Err1px'], step)
+            writer.add_scalar('Train/Err2px', m['Err2px'], step)
+            writer.add_scalar('Train/Err3px', m['Err3px'], step)
 
-                limg = cv.imread(l_image_path)
-                rimg = cv.imread(r_image_path)
-                disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
-
-                ldisp, _ = net.process(limg, rimg, right=False)
-
-                m = StereoMetrics(disp_gt, ldisp, str(n))
-                avg += m
-            m = avg.metrics()
+            m = calc_metrics(
+                net, val_loader, opt.directory,
+                f'Validation metrics at step {step} epoch {train_loader.epoch}'
+            )
+            print('Validation metrics:')
             pprint(m)
             writer.add_scalar('Validation/Err1px', m['Err1px'], step)
             writer.add_scalar('Validation/Err2px', m['Err2px'], step)
