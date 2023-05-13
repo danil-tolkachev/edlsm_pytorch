@@ -24,6 +24,7 @@ class dataLoader(object):
         self.data_directory = data_directory
         self.nchannels = nchannels
         self.train_split_size = train_split_size
+        self.shift = 2
         self.get_data()
 
     def get_data(self):
@@ -70,8 +71,8 @@ class dataLoader(object):
             for v, u in zip(*np.where(disp > 0)):
                 d = disp[v, u]
                 ur = np.round(u - d)
-                if (psz <= u < width - psz
-                        and psz + half <= ur < width - psz - half
+                if (psz <= u < width - psz - self.shift
+                        and psz + self.shift <= ur < width - psz
                         and psz <= v < height - psz):
                     points.append((img, u, v, d))
 
@@ -118,9 +119,11 @@ class dataLoader(object):
                 v1, v2 = v - psz, v + psz + 1
                 u1, u2 = u - psz, u + psz + 1
                 ur = round(u - d)
-                u1r = ur - half - psz
-                u2r = ur + half + psz + 1
-                t_batch[batch, 0] = half
+                u1r = max(0, u1 - half2 + self.shift)
+                u2r = u1r + half2 + psz2
+                t = round(u1 - d - u1r)
+                t_batch[batch, 0] = t
+                # print(u, v, d, u1, u2, u1r, u2r, t, u2r - u1r)
 
                 l_image = self.all_rgb_images_l[tr_num]
                 r_image = self.all_rgb_images_r[tr_num]
