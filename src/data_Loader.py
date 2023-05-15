@@ -1,6 +1,5 @@
 from __future__ import print_function
 import os
-import glob
 import random
 import numpy as np
 from tqdm import tqdm
@@ -66,13 +65,12 @@ class dataLoader(object):
                                      'disp_noc_0/%06d_10.png' % img)
             disp = cv.imread(disp_path, cv.IMREAD_UNCHANGED) / 256.0
             height, width = disp.shape
-            half = self.half_range
             psz = self.psz
             for v, u in zip(*np.where(disp > 0)):
                 d = disp[v, u]
                 ur = np.round(u - d)
-                if (psz <= u < width - psz - self.shift
-                        and psz + self.shift <= ur < width - psz
+                if (psz + self.shift < u < width - psz - self.shift
+                        and psz + self.shift < ur < width - psz - self.shift
                         and psz <= v < height - psz):
                     points.append((img, u, v, d))
 
@@ -116,19 +114,23 @@ class dataLoader(object):
             for batch in range(batch_size):
                 tr_num, u, v, d = next(data_gen)
 
+                if random.random() <= 0.5:
+                    l_image = self.all_rgb_images_l[tr_num]
+                    r_image = self.all_rgb_images_r[tr_num]
+                else: # swap and mirror
+                    l_image = self.all_rgb_images_r[tr_num].flip(dims=(2,))
+                    r_image = self.all_rgb_images_l[tr_num].flip(dims=(2,))
+                    w = l_image.size(2)
+                    u = round(w - u + d)
+
                 v1, v2 = v - psz, v + psz + 1
                 u1, u2 = u - psz, u + psz + 1
-                ur = round(u - d)
                 u1r = max(0, u1 - half2 + self.shift)
                 u2r = u1r + half2 + psz2
                 t = round(u1 - d - u1r)
-                t_batch[batch, 0] = t
-                # print(u, v, d, u1, u2, u1r, u2r, t, u2r - u1r)
-
-                l_image = self.all_rgb_images_l[tr_num]
-                r_image = self.all_rgb_images_r[tr_num]
 
                 image_l_batch[batch, ...] = l_image[:, v1:v2, u1:u2]
                 image_r_batch[batch, ...] = r_image[:, v1:v2, u1r:u2r]
+                t_batch[batch, 0] = t
 
             yield image_l_batch, image_r_batch, t_batch
