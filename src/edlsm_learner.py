@@ -15,7 +15,7 @@ import json
 
 from .nets import Net
 from .data_Loader import dataLoader
-from .nets_test import Inference
+from .nets_test import EdlsmNet
 from .stereo_metrics import StereoMetrics
 
 
@@ -33,15 +33,12 @@ def calc_metrics(net, loader, directory, frame):
     avg.frame = frame
 
     for n in tqdm(loader.img_set):
-        l_image_path = os.path.join(directory, 'image_2/%06d_10.png' % n)
-        r_image_path = os.path.join(directory, 'image_3/%06d_10.png' % n)
+        limg = loader.all_rgb_images_l[n].cuda()[None, ...]
+        rimg = loader.all_rgb_images_r[n].cuda()[None, ...]
         disp_gt_path = os.path.join(directory, 'disp_noc_0/%06d_10.png' % n)
-
-        limg = cv.imread(l_image_path)
-        rimg = cv.imread(r_image_path)
         disp_gt = cv.imread(disp_gt_path, cv.IMREAD_UNCHANGED) / 256.0
 
-        ldisp, _ = net.process(limg, rimg, right=False)
+        ldisp = net(limg, rimg).cpu().numpy().astype(np.float32)
 
         m = StereoMetrics(disp_gt, ldisp, str(n))
         avg += m
@@ -144,7 +141,9 @@ class edlsmLearner(object):
             writer.add_scalar('Loss/train',
                               loss.data.cpu().numpy() / opt.batch_size, step)
 
-            net = Inference(3, checkpoint_path, 128, True)
+            net = EdlsmNet(3, 128, False)
+            net.load_weights(checkpoint_path)
+            net.cuda()
 
             m = calc_metrics(
                 net, train_loader, opt.directory,

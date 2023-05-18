@@ -62,7 +62,7 @@ print('Inference....')
 model_fn = os.path.join(args.checkpoint_dir, args.checkpoint_file)
 
 # Build Test Graph
-net = Inference(3, model_fn, args.disp_range, args.use_gpu)
+net = Inference(3, model_fn, args.disp_range, args.use_gpu, True)
 print(net.net)
 print('Model Loaded')
 
